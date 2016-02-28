@@ -1,0 +1,2 @@
+#!/bin/bash
+LD_PRELOAD=/some/dir/pathhack.so "$@"
