@@ -70,110 +70,92 @@ __attribute__((constructor)) void foo() {
  * realink (returns ssize_t)
  */
 
-#define functop(func)                                                         \
+#define func(f, target, ...)                                                  \
   int ret, saverrno = errno;                                                  \
   errno = 0;                                                                  \
-  ret = orig##func;                                                           \
+  ret = orig##f(target, ##__VA_ARGS__);                                       \
   if (ret != -1) {                                                            \
     errno = saverrno;                                                         \
     return ret;                                                               \
   }                                                                           \
   if (errno != ENOENT || pathname[0] == '/') return ret;                      \
-  size_t len = strlen(pathname);
-
-#define funcbody(func)                                                        \
+  size_t len = strlen(pathname);                                              \
+                                                                              \
   for (size_t i = 0; i < pathnum; i++) {                                      \
     if (len + paths[i].len > PATH_MAX) continue;                              \
     memcpy(tmp, paths[i].path, paths[i].len);                                 \
     strcat(tmp, pathname);                                                    \
     errno = saverrno;                                                         \
-    ret = orig##func;                                                         \
+    ret = orig##f(tmp, ##__VA_ARGS__);                                        \
     if (ret != -1) return ret;                                                \
   }                                                                           \
   errno = ENOENT;                                                             \
   return -1;
 
 int access(const char *pathname, int mode) {
-  functop(access(pathname, mode));
-  funcbody(access(tmp, mode));
+  func(access, pathname, mode);
 }
 
 int chdir(const char *pathname) {
-  functop(chdir(pathname));
-  funcbody(chdir(tmp));
+  func(chdir, pathname);
 }
 
 int chmod(const char *pathname, mode_t mode) {
-  functop(chmod(pathname, mode));
-  funcbody(chmod(tmp, mode));
+  func(chmod, pathname, mode);
 }
 
 int chown(const char *pathname, uid_t owner, gid_t group) {
-  functop(chown(pathname, owner, group));
-  funcbody(chown(tmp, owner, group));
+  func(chown, pathname, owner, group);
 }
 
 int chroot(const char *pathname) {
-  functop(chroot(pathname));
-  funcbody(chroot(tmp));
+  func(chroot, pathname);
 }
 
 int creat(const char *pathname, mode_t mode) {
-  functop(creat(pathname, mode));
-  funcbody(creat(tmp, mode));
+  func(creat, pathname, mode);
 }
 
 int lchown(const char *pathname, uid_t owner, gid_t group) {
-  functop(lchown(pathname, owner, group));
-  funcbody(lchown(tmp, owner, group));
+  func(lchown, pathname, owner, group);
 }
 
 int lstat(const char *pathname, struct stat *buf) {
-  functop(lstat(pathname, buf));
-  funcbody(lstat(tmp, buf));
+  func(lstat, pathname, buf);
 }
 
 int open(const char *pathname, int flags) {
-  functop(open(pathname, flags));
-  funcbody(open(tmp, flags));
+  func(open, pathname, flags);
 }
 
 int rmdir(const char *pathname) {
-  functop(rmdir(pathname));
-  funcbody(rmdir(tmp));
+  func(rmdir, pathname);
 }
 
 int swapon(const char *pathname, int flags) {
-  functop(swapon(pathname, flags));
-  funcbody(swapon(tmp, flags));
+  func(swapon, pathname, flags);
 }
 
 int swapoff(const char *pathname) {
-  functop(swapoff(pathname));
-  funcbody(swapoff(tmp));
+  func(swapoff, pathname);
 }
 
 int stat(const char *pathname, struct stat *buf) {
-  functop(stat(pathname, buf));
-  funcbody(stat(tmp, buf));
+  func(stat, pathname, buf);
 }
 
 int truncate (const char *pathname, off_t length) {
-  functop(truncate(pathname, length));
-  funcbody(truncate(tmp, length));
+  func(truncate, pathname, length);
 }
 
 int umount(const char *pathname) {
-  functop(umount(pathname));
-  funcbody(umount(tmp));
+  func(umount, pathname);
 }
 
 int umount2(const char *pathname, int flags) {
-  functop(umount2(pathname, flags));
-  funcbody(umount2(tmp, flags));
+  func(umount2, pathname, flags);
 }
 
 int unlink(const char *pathname) {
-  functop(unlink(pathname));
-  funcbody(unlink(tmp));
+  func(unlink, pathname);
 }
