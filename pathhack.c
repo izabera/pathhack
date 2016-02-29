@@ -8,6 +8,11 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <utime.h>
+#include <sys/vfs.h>
+#include <sys/xattr.h>
 
 #define str(x) #x
 #define STR(x) #x "/"
@@ -19,24 +24,36 @@ static size_t pathnum = sizeof(paths) / sizeof(paths[0]);
 
 char tmp[PATH_MAX];
 
-#define proto(name, ...) int (*orig##name)(__VA_ARGS__)
-proto(access, const char *pathname, int mode);
-proto(chdir, const char *pathname);
-proto(chmod, const char *pathname, mode_t mode);
-proto(chown, const char *pathname, uid_t owner, gid_t group);
-proto(chroot, const char *pathname);
-proto(creat, const char *pathname, mode_t mode);
-proto(lchown, const char *pathname, uid_t owner, gid_t group);
-proto(lstat, const char *pathname, struct stat *buf);
-proto(open, const char *pathname, int flags);
-proto(rmdir, const char *pathname);
-proto(stat, const char *pathname, struct stat *buf);
-proto(swapon, const char *pathname, int flags);
-proto(swapoff, const char *pathname);
-proto(truncate, const char *pathname, off_t length);
-proto(umount, const char *pathname);
-proto(umount2, const char *pathname, int flags);
-proto(unlink, const char *pathname);
+#define init(name, ...) int (*orig##name)(__VA_ARGS__)
+init(access, const char *pathname, int mode);
+init(chdir, const char *pathname);
+init(chmod, const char *pathname, mode_t mode);
+init(chown, const char *pathname, uid_t owner, gid_t group);
+init(chroot, const char *pathname);
+init(creat, const char *pathname, mode_t mode);
+init(getxattr, const char *pathname, const char *name, void *value, size_t size);
+init(lchown, const char *pathname, uid_t owner, gid_t group);
+init(lgetxattr, const char *pathname, const char *name, void *value, size_t size);
+init(listxattr, const char *pathname, char *list, size_t size);
+init(llistxattr, const char *pathname, char *list, size_t size);
+init(lremovexattr, const char *path, const char *name);
+init(lsetxattr, const char *pathname, const char *name, const void *value, size_t size, int flags);
+init(lstat, const char *pathname, struct stat *buf);
+init(open, const char *pathname, int flags);
+init(readlink, const char *pathname, char *buf, size_t bufsiz);
+init(removexattr, const char *pathname, const char *name);
+init(rmdir, const char *pathname);
+init(setxattr, const char *pathname, const char *name, const void *value, size_t size, int flags);
+init(stat, const char *pathname, struct stat *buf);
+init(statfs, const char *pathname, struct statfs *buf);
+init(swapon, const char *pathname, int flags);
+init(swapoff, const char *pathname);
+init(truncate, const char *pathname, off_t length);
+init(unlink, const char *pathname);
+init(umount, const char *pathname);
+init(umount2, const char *pathname, int flags);
+init(utime, const char *pathname, const struct utimbuf *times);
+init(utimes, const char *pathname, const struct timeval times[2]);
 
 #define construct(name) orig##name = dlsym(RTLD_NEXT, str(name));
 __attribute__((constructor)) void foo() {
@@ -46,17 +63,26 @@ __attribute__((constructor)) void foo() {
   construct(chown);
   construct(chroot);
   construct(creat);
+  construct(getxattr);
   construct(lchown);
+  construct(lgetxattr);
+  construct(listxattr);
+  construct(llistxattr);
+  construct(lsetxattr);
   construct(lstat);
   construct(open);
+  construct(readlink);
   construct(rmdir);
+  construct(setxattr);
   construct(stat);
   construct(swapon);
   construct(swapoff);
   construct(truncate);
+  construct(unlink);
   construct(umount);
   construct(umount2);
-  construct(unlink);
+  construct(utime);
+  construct(utimes);
 }
 /* todo?
  * link
@@ -67,13 +93,12 @@ __attribute__((constructor)) void foo() {
  * ...
  * *at versions (paths are actually absolute?)
  * *32 / *64 versions (handled by glibc?)
- * realink (returns ssize_t)
  */
 
-#define func(f, target, ...)                                                  \
-  int ret, saverrno = errno;                                                  \
+#define typefunc(type, f, ...)                                                \
+  int saverrno = errno;                                                       \
   errno = 0;                                                                  \
-  ret = orig##f(target, ##__VA_ARGS__);                                       \
+  type ret = orig##f(pathname, ##__VA_ARGS__);                                \
   if (ret != -1) {                                                            \
     errno = saverrno;                                                         \
     return ret;                                                               \
@@ -92,70 +117,116 @@ __attribute__((constructor)) void foo() {
   errno = ENOENT;                                                             \
   return -1;
 
+#define func(...) typefunc(int, __VA_ARGS__)
+
 int access(const char *pathname, int mode) {
-  func(access, pathname, mode);
+  func(access, mode);
 }
 
 int chdir(const char *pathname) {
-  func(chdir, pathname);
+  func(chdir);
 }
 
 int chmod(const char *pathname, mode_t mode) {
-  func(chmod, pathname, mode);
+  func(chmod, mode);
 }
 
 int chown(const char *pathname, uid_t owner, gid_t group) {
-  func(chown, pathname, owner, group);
+  func(chown, owner, group);
 }
 
 int chroot(const char *pathname) {
-  func(chroot, pathname);
+  func(chroot);
 }
 
 int creat(const char *pathname, mode_t mode) {
-  func(creat, pathname, mode);
+  func(creat, mode);
+}
+
+ssize_t getxattr(const char *pathname, const char *name, void *value, size_t size) {
+  typefunc(ssize_t, getxattr, name, value, size);
 }
 
 int lchown(const char *pathname, uid_t owner, gid_t group) {
-  func(lchown, pathname, owner, group);
+  func(lchown, owner, group);
+}
+
+ssize_t lgetxattr(const char *pathname, const char *name, void *value, size_t size) {
+  typefunc(ssize_t, lgetxattr, name, value, size);
+}
+
+ssize_t listxattr(const char *pathname, char *list, size_t size) {
+  typefunc(ssize_t, listxattr, list, size);
+}
+
+ssize_t llistxattr(const char *pathname, char *list, size_t size) {
+  typefunc(ssize_t, llistxattr, list, size);
+}
+
+int lremovexattr(const char *pathname, const char *name) {
+  func(lremovexattr, name);
+}
+
+int lsetxattr(const char *pathname, const char *name, const void *value, size_t size, int flags) {
+  func(lsetxattr, name, value, size, flags);
 }
 
 int lstat(const char *pathname, struct stat *buf) {
-  func(lstat, pathname, buf);
+  func(lstat, buf);
 }
 
 int open(const char *pathname, int flags) {
-  func(open, pathname, flags);
+  func(open, flags);
+}
+
+ssize_t readlink(const char *pathname, char *buf, size_t bufsiz) {
+  typefunc(ssize_t, readlink, buf, bufsiz);
+}
+
+int removexattr(const char *pathname, const char *name) {
+  func(removexattr, name);
 }
 
 int rmdir(const char *pathname) {
-  func(rmdir, pathname);
+  func(rmdir);
 }
 
 int swapon(const char *pathname, int flags) {
-  func(swapon, pathname, flags);
+  func(swapon, flags);
 }
 
 int swapoff(const char *pathname) {
-  func(swapoff, pathname);
+  func(swapoff);
 }
 
 int stat(const char *pathname, struct stat *buf) {
-  func(stat, pathname, buf);
+  func(stat, buf);
 }
 
-int truncate (const char *pathname, off_t length) {
-  func(truncate, pathname, length);
+int setxattr(const char *pathname, const char *name, const void *value, size_t size, int flags) {
+  func(setxattr, name, value, size, flags);
 }
 
-int umount(const char *pathname) {
-  func(umount, pathname);
-}
-
-int umount2(const char *pathname, int flags) {
-  func(umount2, pathname, flags);
+int truncate(const char *pathname, off_t length) {
+  func(truncate, length);
 }
 
 int unlink(const char *pathname) {
-  func(unlink, pathname);
+  func(unlink);
+}
+
+int umount(const char *pathname) {
+  func(umount);
+}
+
+int umount2(const char *pathname, int flags) {
+  func(umount2, flags);
+}
+
+int utime(const char *pathname, const struct utimbuf *times) {
+  func(utime, times);
+}
+
+int utimes(const char *pathname, const struct timeval times[2]) {
+  func(utimes, times);
 }
