@@ -46,12 +46,12 @@ init(rmdir, const char *pathname);
 init(setxattr, const char *pathname, const char *name, const void *value, size_t size, int flags);
 init(stat, const char *pathname, struct stat *buf);
 init(statfs, const char *pathname, struct statfs *buf);
-init(swapon, const char *pathname, int flags);
 init(swapoff, const char *pathname);
+init(swapon, const char *pathname, int flags);
 init(truncate, const char *pathname, off_t length);
-init(unlink, const char *pathname);
 init(umount, const char *pathname);
 init(umount2, const char *pathname, int flags);
+init(unlink, const char *pathname);
 init(utime, const char *pathname, const struct utimbuf *times);
 init(utimes, const char *pathname, const struct timeval times[2]);
 
@@ -75,12 +75,12 @@ __attribute__((constructor)) void foo() {
   construct(rmdir);
   construct(setxattr);
   construct(stat);
-  construct(swapon);
   construct(swapoff);
+  construct(swapon);
   construct(truncate);
-  construct(unlink);
   construct(umount);
   construct(umount2);
+  construct(unlink);
   construct(utime);
   construct(utimes);
 }
@@ -191,28 +191,24 @@ int rmdir(const char *pathname) {
   func(rmdir);
 }
 
-int swapon(const char *pathname, int flags) {
-  func(swapon, flags);
-}
-
-int swapoff(const char *pathname) {
-  func(swapoff);
+int setxattr(const char *pathname, const char *name, const void *value, size_t size, int flags) {
+  func(setxattr, name, value, size, flags);
 }
 
 int stat(const char *pathname, struct stat *buf) {
   func(stat, buf);
 }
 
-int setxattr(const char *pathname, const char *name, const void *value, size_t size, int flags) {
-  func(setxattr, name, value, size, flags);
+int swapoff(const char *pathname) {
+  func(swapoff);
+}
+
+int swapon(const char *pathname, int flags) {
+  func(swapon, flags);
 }
 
 int truncate(const char *pathname, off_t length) {
   func(truncate, length);
-}
-
-int unlink(const char *pathname) {
-  func(unlink);
 }
 
 int umount(const char *pathname) {
@@ -221,6 +217,10 @@ int umount(const char *pathname) {
 
 int umount2(const char *pathname, int flags) {
   func(umount2, flags);
+}
+
+int unlink(const char *pathname) {
+  func(unlink);
 }
 
 int utime(const char *pathname, const struct utimbuf *times) {
